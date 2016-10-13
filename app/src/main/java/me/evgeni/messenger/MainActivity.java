@@ -3,31 +3,32 @@ package me.evgeni.messenger;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements WifiP2pManager.PeerListListener {
 
+    private static final String TAG = "MainActivity";
     private final IntentFilter intentFilter = new IntentFilter();
     private WifiP2pManager mManager;
     private WifiP2pManager.Channel mChannel;
     private BroadcastReceiver mReceiver;
     private List peers = new ArrayList();
+    private DeviceAdapter adapter;
+    private ListView listView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,7 +36,9 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
+        listView = (ListView) findViewById(R.id.listView);
+        adapter = new DeviceAdapter();
+        listView.setAdapter(adapter);
 
         //  Indicates a change in the Wi-Fi P2P status.
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
@@ -59,19 +62,19 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
             @Override
             public void onClick(View view) {
 
-//                mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
-//                    @Override
-//                    public void onSuccess() {
-//                        Toast.makeText(getApplicationContext(), "Discovery began", Toast.LENGTH_LONG).show();
-//                    }
-//
-//                    @Override
-//                    public void onFailure(int i) {
-//                        Toast.makeText(getApplicationContext(), "Discovery failed", Toast.LENGTH_LONG).show();
-//                    }
-//                });
+                mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(getApplicationContext(), "Discovery began", Toast.LENGTH_LONG).show();
+                    }
 
-                Map record = new HashMap();
+                    @Override
+                    public void onFailure(int i) {
+                        Toast.makeText(getApplicationContext(), "Discovery failed", Toast.LENGTH_LONG).show();
+                    }
+                });
+
+               /* Map record = new HashMap();
                 record.put("listenport", String.valueOf(3000));
                 record.put("buddyname", "John Doe" + (int) (Math.random() * 1000));
                 record.put("available", "visible");
@@ -87,7 +90,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
                     public void onFailure(int i) {
                         Toast.makeText(getApplicationContext(), "Service failed", Toast.LENGTH_LONG).show();
                     }
-                });
+                });*/
 
                 //mManager.requestPeers(mChannel, MainActivity.this);
             }
@@ -107,12 +110,15 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
         unregisterReceiver(mReceiver);
     }
 
-    @Override public boolean onCreateOptionsMenu(Menu menu) {
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
@@ -132,11 +138,8 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
         // Out with the old, in with the new.
         peers.clear();
         peers.addAll(peerList.getDeviceList());
-
-        // If an AdapterView is backed by this data, notify it
-        // of the change.  For instance, if you have a ListView of available
-        // peers, trigger an update.
-        Toast.makeText(getApplicationContext(), String.valueOf(peers.size()), Toast.LENGTH_LONG).show();
-
+        ArrayList<WifiP2pDevice> list = new ArrayList<>(peerList.getDeviceList());
+        adapter.setData(list);
+        Toast.makeText(this, String.valueOf(list.size()), Toast.LENGTH_LONG).show();
     }
 }
