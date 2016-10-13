@@ -6,7 +6,9 @@ import android.content.IntentFilter;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
+import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -19,11 +21,17 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements WifiP2pManager.PeerListListener,
-        AdapterView.OnItemClickListener {
+        AdapterView.OnItemClickListener, WifiP2pManager.ConnectionInfoListener {
 
     private static final String TAG = "MainActivity";
     private final IntentFilter intentFilter = new IntentFilter();
@@ -33,6 +41,8 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
     private List peers = new ArrayList();
     private DeviceAdapter adapter;
     private ListView listView;
+    private ServerAsyncTask serverTask;
+    private String textMessage = "Vasea";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +53,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
         listView = (ListView) findViewById(R.id.listView);
         adapter = new DeviceAdapter();
         listView.setAdapter(adapter);
+        serverTask = new ServerAsyncTask(this);
 
         //  Indicates a change in the Wi-Fi P2P status.
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
@@ -151,7 +162,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         try {
-            WifiP2pDevice device = (WifiP2pDevice) parent.getItemAtPosition(position);
+            final WifiP2pDevice device = (WifiP2pDevice) parent.getItemAtPosition(position);
             WifiP2pConfig config = new WifiP2pConfig();
             config.deviceAddress = device.deviceAddress;
             mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
@@ -160,6 +171,7 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
                 public void onSuccess() {
                     Log.d(TAG, "Connect success!");
                     Toast.makeText(getBaseContext(), "Connect success!", Toast.LENGTH_LONG).show();
+                    requestConnectionInfo();
                 }
 
                 @Override
@@ -169,8 +181,71 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
                 }
             });
 
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        catch (Exception e){
+    }
+
+    private void sendMessage(String host, int port) {
+        int len;
+        Socket socket = new Socket();
+        byte buf[] = new byte[1024];
+        try {
+            /**
+             * Create a client socket with the host,
+             * port, and timeout information.
+             */
+            socket.bind(null);
+            socket.connect((new InetSocketAddress(host, port)), 500);
+
+            OutputStream outputStream = socket.getOutputStream();
+            InputStream inputStream = new ByteArrayInputStream(textMessage.getBytes(StandardCharsets.UTF_8));
+            while ((len = inputStream.read(buf)) != -1) {
+                outputStream.write(buf, 0, len);
+            }
+            outputStream.close();
+            inputStream.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+/**
+ * Clean up any open sockets when done
+ * transferring or if an exception occurred.
+ */ finally {
+            if (socket != null) {
+                if (socket.isConnected()) {
+                    try {
+                        socket.close();
+                    } catch (Exception e) {
+                        //catch logic
+                    }
+                }
+            }
+        }
+    }
+
+    private void requestConnectionInfo () {
+        mManager.requestConnectionInfo(mChannel, this);
+    }
+
+    @Override
+    public void onConnectionInfoAvailable(WifiP2pInfo info) {
+        try {
+        final String host = info.groupOwnerAddress.getHostAddress();
+        Log.d(TAG, "onConnectionInfoAvailable: " + host);
+        if (info.groupFormed && info.isGroupOwner ) {
+            serverTask.execute();
+        } else if (info.groupFormed) {
+            Log.d(TAG, "onConnectionInfoAvailable: device is client, connect to group owner: startSocketClient ");
+            AsyncTask.execute(new Runnable() {
+                @Override
+                public void run() {
+                    sendMessage(host, 8888);
+                }
+            });
+        }}
+        catch (Exception e) {
             e.printStackTrace();
         }
     }
