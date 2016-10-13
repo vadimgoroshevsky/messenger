@@ -3,6 +3,7 @@ package me.evgeni.messenger;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
@@ -10,16 +11,19 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements WifiP2pManager.PeerListListener {
+public class MainActivity extends AppCompatActivity implements WifiP2pManager.PeerListListener,
+        AdapterView.OnItemClickListener {
 
     private static final String TAG = "MainActivity";
     private final IntentFilter intentFilter = new IntentFilter();
@@ -140,6 +144,34 @@ public class MainActivity extends AppCompatActivity implements WifiP2pManager.Pe
         peers.addAll(peerList.getDeviceList());
         ArrayList<WifiP2pDevice> list = new ArrayList<>(peerList.getDeviceList());
         adapter.setData(list);
+        listView.setOnItemClickListener(this);
         Toast.makeText(this, String.valueOf(list.size()), Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        try {
+            WifiP2pDevice device = (WifiP2pDevice) parent.getItemAtPosition(position);
+            WifiP2pConfig config = new WifiP2pConfig();
+            config.deviceAddress = device.deviceAddress;
+            mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
+
+                @Override
+                public void onSuccess() {
+                    Log.d(TAG, "Connect success!");
+                    Toast.makeText(getBaseContext(), "Connect success!", Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    Log.d(TAG, "Connect failure!");
+                    Toast.makeText(getBaseContext(), "Connect failure!", Toast.LENGTH_LONG).show();
+                }
+            });
+
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
     }
 }
