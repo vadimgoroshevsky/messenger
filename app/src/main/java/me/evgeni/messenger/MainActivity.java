@@ -8,19 +8,14 @@ import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
-import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
@@ -34,21 +29,28 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
 public class MainActivity extends AppCompatActivity
         implements WifiP2pManager.PeerListListener,
-                    WifiP2pManager.ConnectionInfoListener,
-                    AdapterView.OnItemClickListener {
+        WifiP2pManager.ConnectionInfoListener,
+        AdapterView.OnItemClickListener {
+
+    @BindView(R.id.list_view)
+    ListView listView;
+    @BindView(R.id.go)
+    Button send;
+    @BindView(R.id.input)
+    EditText input;
+    @BindView(R.id.layout)
+    LinearLayout chatLayout;
 
     private static final String TAG = "MainActivity";
     private final IntentFilter intentFilter = new IntentFilter();
@@ -56,10 +58,6 @@ public class MainActivity extends AppCompatActivity
     private WifiP2pManager.Channel mChannel;
     private BroadcastReceiver mReceiver;
     private DeviceAdapter adapter;
-    @BindView(R.id.list_view) ListView listView;
-    @BindView(R.id.go) Button send;
-    @BindView(R.id.input) EditText input;
-    @BindView(R.id.layout) LinearLayout chatLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +66,10 @@ public class MainActivity extends AppCompatActivity
         ButterKnife.bind(this);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        init();
+    }
 
+    private void init() {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
@@ -77,58 +78,18 @@ public class MainActivity extends AppCompatActivity
 
         mManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
         mChannel = mManager.initialize(this, getMainLooper(), null);
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
-                    @Override
-                    public void onSuccess() {
-                        Toast.makeText(getApplicationContext(), "Discovery began", Toast.LENGTH_LONG).show();
-                    }
-
-                    @Override
-                    public void onFailure(int i) {
-                        Toast.makeText(getApplicationContext(), "Discovery failed", Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-        });
+        adapter = new DeviceAdapter();
+        listView.setAdapter(adapter);
+        mReceiver = new Receiver(mManager, mChannel, this, this);
+        registerReceiver(mReceiver, intentFilter);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        send.setVisibility(View.GONE); input.setVisibility(View.GONE);
-        mReceiver = new Receiver(mManager, mChannel, this, this);
-        registerReceiver(mReceiver, intentFilter);
-        adapter = new DeviceAdapter();
-        listView.setAdapter(adapter);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        unregisterReceiver(mReceiver);
-    }
-
-    @Override public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+        send.setVisibility(View.GONE);
+        input.setVisibility(View.GONE);
+        initializePeerDiscovery();
     }
 
     @Override
@@ -140,32 +101,35 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         try {
-            final WifiP2pDevice device = (WifiP2pDevice) parent.getItemAtPosition(position);
-            WifiP2pConfig config = new WifiP2pConfig();
-            config.deviceAddress = device.deviceAddress;
-            config.wps.setup = WpsInfo.PBC;
-            mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
-
-                @Override
-                public void onSuccess() {
-                    Log.d(TAG, "Connect success!");
-                    Toast.makeText(getBaseContext(), "Connect success!", Toast.LENGTH_LONG).show();
-                }
-
-                @Override
-                public void onFailure(int reason) {
-                    Log.d(TAG, "Connect failure!");
-                    Toast.makeText(getBaseContext(), "Connect failure!", Toast.LENGTH_LONG).show();
-                }
-            });
-
+            WifiP2pDevice device = (WifiP2pDevice) parent.getItemAtPosition(position);
+            connectToDevice(device);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private void connectToDevice(WifiP2pDevice device) {
+        WifiP2pConfig config = new WifiP2pConfig();
+        config.deviceAddress = device.deviceAddress;
+        config.wps.setup = WpsInfo.PBC;
+        mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
+
+            @Override
+            public void onSuccess() {
+                Log.d(TAG, "Connect success!");
+                Toast.makeText(getBaseContext(), "Connect success!", Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onFailure(int reason) {
+                Log.d(TAG, "Connect failure!");
+                Toast.makeText(getBaseContext(), "Connect failure!", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
     private void sendMessage(final String host, final int port, final String message) {
-        Runnable runnable = new Runnable() {
+        Runnable sendMessageRunnable = new Runnable() {
             @Override
             public void run() {
                 int len;
@@ -189,24 +153,25 @@ public class MainActivity extends AppCompatActivity
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    if (socket != null) {
-                        if (socket.isConnected()) {
-                            try {
-                                socket.close();
-                            } catch (Exception e) { }
+                    if (socket.isConnected()) {
+                        try {
+                            socket.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
                     }
+
                 }
             }
         };
-        new Thread(runnable).start();
+        new Thread(sendMessageRunnable).start();
     }
 
     @Override
     public void onConnectionInfoAvailable(final WifiP2pInfo info) {
         try {
             final String host = info.groupOwnerAddress.getHostAddress();
-            if (info.groupFormed && info.isGroupOwner ) {
+            if (info.groupFormed && info.isGroupOwner) {
                 Log.d(TAG, "I AM A SERVER!");
                 // serverTask.execute();
                 AsyncTask.execute(new Runnable() {
@@ -221,7 +186,8 @@ public class MainActivity extends AppCompatActivity
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        input.setVisibility(View.VISIBLE); send.setVisibility(View.VISIBLE);
+                                        input.setVisibility(View.VISIBLE);
+                                        send.setVisibility(View.VISIBLE);
                                         send.setOnClickListener(new View.OnClickListener() {
                                             @Override
                                             public void onClick(View v) {
@@ -232,7 +198,8 @@ public class MainActivity extends AppCompatActivity
                                                 textView.setGravity(Gravity.RIGHT);
                                                 textView.setPadding(4, 4, 4, 4);
                                                 textView.setText(input.getText().toString());
-                                                if (chatLayout.getChildCount() > 10) chatLayout.removeViewAt(0);
+                                                if (chatLayout.getChildCount() > 10)
+                                                    chatLayout.removeViewAt(0);
                                                 chatLayout.addView(textView);
                                                 input.setText("");
                                             }
@@ -252,18 +219,21 @@ public class MainActivity extends AppCompatActivity
                                         final TextView textView = new TextView(getApplicationContext());
                                         textView.setText(message);
                                         textView.setPadding(4, 4, 4, 4);
-                                        if (chatLayout.getChildCount() > 10) chatLayout.removeViewAt(0);
+                                        if (chatLayout.getChildCount() > 10)
+                                            chatLayout.removeViewAt(0);
                                         chatLayout.addView(textView);
                                     }
                                 });
                             }
-                        } catch (IOException e) { }
+                        } catch (IOException e) {
+                        }
                     }
                 });
 
             } else if (info.groupFormed) {
                 Log.d(TAG, "I AM A CLIENT!");
-                send.setVisibility(View.VISIBLE); input.setVisibility(View.VISIBLE);
+                send.setVisibility(View.VISIBLE);
+                input.setVisibility(View.VISIBLE);
                 send.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -279,12 +249,12 @@ public class MainActivity extends AppCompatActivity
                         input.setText("");
                     }
                 });
-                
+
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            while(true) {
+                            while (true) {
                                 Log.d(TAG, "running server socket runnable on client");
                                 ServerSocket serverSocket = new ServerSocket(7777);
                                 Socket client = serverSocket.accept();
@@ -299,12 +269,14 @@ public class MainActivity extends AppCompatActivity
                                         final TextView textView = new TextView(getApplicationContext());
                                         textView.setText(message);
                                         textView.setPadding(4, 4, 4, 4);
-                                        if (chatLayout.getChildCount() > 10) chatLayout.removeViewAt(0);
+                                        if (chatLayout.getChildCount() > 10)
+                                            chatLayout.removeViewAt(0);
                                         chatLayout.addView(textView);
                                     }
                                 });
                             }
-                        } catch (IOException e) { }
+                        } catch (IOException e) {
+                        }
                     }
                 }).start();
             }
@@ -317,5 +289,30 @@ public class MainActivity extends AppCompatActivity
     private String convertStreamToString(java.io.InputStream is) {
         java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
         return s.hasNext() ? s.next() : "";
+    }
+
+    private void initializePeerDiscovery() {
+        mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(getApplicationContext(), "Discovery began", Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onFailure(int i) {
+                Toast.makeText(getApplicationContext(), "Discovery failed", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        unregisterReceiver(mReceiver);
     }
 }
