@@ -16,69 +16,60 @@ public class Receiver extends BroadcastReceiver {
 
     public static final String TAG = "receiver";
 
-
+    private boolean discovering;
     private WifiP2pManager manager;
     private WifiP2pManager.Channel channel;
     private WifiP2pManager.PeerListListener listListener;
+    private WifiP2pManager.ConnectionInfoListener connectionListener;
 
     /**
      * @param manager WifiP2pManager system service
      * @param channel Wifi p2p channel
      */
-    public Receiver(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.PeerListListener listener) {
+    public Receiver(WifiP2pManager manager, WifiP2pManager.Channel channel,
+                    WifiP2pManager.PeerListListener listener,
+                    WifiP2pManager.ConnectionInfoListener connectionInfoListener) {
         super();
         this.manager = manager;
         this.channel = channel;
         this.listListener = listener;
+        this.connectionListener = connectionInfoListener;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
-            // Determine if Wifi P2P mode is enabled or not, alert
-            // the Activity.
-
             Log.d(TAG, "action state changed");
-
             int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
             if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
-                // activity.setIsWifiP2pEnabled(true);
-
                 Log.d(TAG, "wifip2p enabled");
             } else {
-                // activity.setIsWifiP2pEnabled(false);
-
                 Log.d(TAG, "wifip2p disabled");
             }
         } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-
-            // The peer list has changed!  We should probably do something about
-            // that.
-
             if (manager != null) {
-                Log.d(TAG, "manager not null, requesting peers");
+                Log.d(TAG, "ACTION peers changed: manager not null, requesting peers");
                 manager.requestPeers(channel, listListener);
             } else {
-                Log.d(TAG, "manager null");
+                Log.d(TAG, "ACTION peers changed: manager null");
             }
-
-            Log.d(TAG, "action peers changed");
-
         } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-
-            // Connection state changed!  We should probably do something about
-            // that.
+            manager.requestConnectionInfo(channel, connectionListener);
             Log.d(TAG, "action connection changed");
-
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-            // DeviceListFragment fragment = (DeviceListFragment) activity.getFragmentManager()
-               //      .findFragmentById(R.id.frag_list);
-            // fragment.updateThisDevice((WifiP2pDevice) intent.getParcelableExtra(
-                  //   WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
-
             Log.d(TAG, "action this device changed");
-
+        } else if (WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "!!! discovery changed");
+            discovering =! discovering;
+            Log.d(TAG, String.valueOf(discovering));
+            int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
+            Log.d(TAG, String.valueOf(state));
+            if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
+                Log.d(TAG, "... discovery started");
+            } else if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED){
+                Log.d(TAG, "... discovery ended");
+            }
         }
     }
 }

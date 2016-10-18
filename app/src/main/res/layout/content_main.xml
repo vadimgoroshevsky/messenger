@@ -14,10 +14,36 @@
     tools:context="me.evgeni.messenger.MainActivity"
     tools:showIn="@layout/activity_main">
 
-    <ListView
-        android:id="@+id/listView"
+    <LinearLayout
+        android:gravity="right"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="32dp"
+        android:background="@android:color/holo_blue_dark"
+        android:orientation="vertical"
+        android:id="@+id/layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"/>
 
-    </ListView>
+    <ListView
+        android:id="@+id/list_view"
+        android:layout_below="@+id/layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <EditText
+        android:id="@+id/input"
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
+        android:layout_above="@+id/go"
+        android:background="@android:color/holo_blue_dark"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:text="send"
+        android:id="@+id/go"
+        android:layout_marginTop="12dp"
+        android:layout_alignParentBottom="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 </RelativeLayout>
