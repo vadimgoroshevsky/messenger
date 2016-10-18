@@ -12,6 +12,7 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -191,17 +192,21 @@ public class MainActivity extends AppCompatActivity
                                         send.setOnClickListener(new View.OnClickListener() {
                                             @Override
                                             public void onClick(View v) {
-                                                sendMessage(clientAddress, 7777, input.getText().toString());
-                                                final TextView textView = new TextView(getApplicationContext());
-                                                textView.setBackgroundColor(Color.parseColor("#ffa500"));
-                                                textView.setGravity(Gravity.END);
-                                                textView.setGravity(Gravity.RIGHT);
-                                                textView.setPadding(4, 4, 4, 4);
-                                                textView.setText(input.getText().toString());
-                                                if (chatLayout.getChildCount() > 10)
-                                                    chatLayout.removeViewAt(0);
-                                                chatLayout.addView(textView);
-                                                input.setText("");
+                                                if (!input.getText().toString().equals("")) {
+                                                    sendMessage(clientAddress, 7777, input.getText().toString());
+                                                    final TextView textView = new TextView(getApplicationContext());
+                                                    textView.setBackgroundColor(Color.parseColor("#ffa500"));
+                                                    textView.setGravity(Gravity.END);
+                                                    textView.setGravity(Gravity.RIGHT);
+                                                    textView.setPadding(4, 4, 4, 4);
+                                                    textView.setText(input.getText().toString());
+                                                    if (chatLayout.getChildCount() > 10)
+                                                        chatLayout.removeViewAt(0);
+                                                    chatLayout.addView(textView);
+                                                    input.setText("");
+                                                } else {
+                                                    new AlertDialog.Builder(getApplicationContext()).setMessage("Message can't be empty!").create().show();
+                                                }
                                             }
                                         });
                                     }
@@ -212,18 +217,21 @@ public class MainActivity extends AppCompatActivity
                                 Log.d(TAG, "message: " + message);
                                 serverSocket.close();
                                 client.close();
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        // Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-                                        final TextView textView = new TextView(getApplicationContext());
-                                        textView.setText(message);
-                                        textView.setPadding(4, 4, 4, 4);
-                                        if (chatLayout.getChildCount() > 10)
-                                            chatLayout.removeViewAt(0);
-                                        chatLayout.addView(textView);
-                                    }
-                                });
+
+                                if (!message.equals("")) {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            // Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                                            final TextView textView = new TextView(getApplicationContext());
+                                            textView.setText(message);
+                                            textView.setPadding(4, 4, 4, 4);
+                                            if (chatLayout.getChildCount() > 10)
+                                                chatLayout.removeViewAt(0);
+                                            chatLayout.addView(textView);
+                                        }
+                                    });
+                                }
                             }
                         } catch (IOException e) {
                         }
@@ -234,19 +242,24 @@ public class MainActivity extends AppCompatActivity
                 Log.d(TAG, "I AM A CLIENT!");
                 send.setVisibility(View.VISIBLE);
                 input.setVisibility(View.VISIBLE);
+                sendMessage(host, 8888, "");
                 send.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        sendMessage(host, 8888, input.getText().toString());
-                        final TextView textView = new TextView(getApplicationContext());
-                        textView.setBackgroundColor(Color.parseColor("#ffa500"));
-                        textView.setGravity(Gravity.END);
-                        textView.setGravity(Gravity.RIGHT);
-                        textView.setPadding(4, 4, 4, 4);
-                        textView.setText(input.getText().toString());
-                        if (chatLayout.getChildCount() > 10) chatLayout.removeViewAt(0);
-                        chatLayout.addView(textView);
-                        input.setText("");
+                        if (!input.getText().toString().equals("")) {
+                            sendMessage(host, 8888, input.getText().toString());
+                            final TextView textView = new TextView(getApplicationContext());
+                            textView.setBackgroundColor(Color.parseColor("#ffa500"));
+                            textView.setGravity(Gravity.END);
+                            textView.setGravity(Gravity.RIGHT);
+                            textView.setPadding(4, 4, 4, 4);
+                            textView.setText(input.getText().toString());
+                            if (chatLayout.getChildCount() > 10) chatLayout.removeViewAt(0);
+                            chatLayout.addView(textView);
+                            input.setText("");
+                        } else {
+                            new AlertDialog.Builder(getApplicationContext()).setMessage("Message can't be empty!").create().show();
+                        }
                     }
                 });
 
